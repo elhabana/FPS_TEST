@@ -161,7 +161,9 @@ public class BulletShoot : MonoBehaviour
             if (Physics.Raycast(bala.posicion, bala.direccion, out RaycastHit impacto,
                 paso, capasImpacto, QueryTriggerInteraction.Ignore))
             {
-                bool esCaja = cajasSystem != null && cajasSystem.RecibirDisparo(impacto.collider);
+                CajaRapida cajaRapida = impacto.collider.GetComponentInParent<CajaRapida>();
+                if (cajaRapida != null) cajaRapida.RecibirDisparo();
+                bool esCaja = cajaRapida != null || (cajasSystem != null && cajasSystem.RecibirDisparo(impacto.collider));
                 Rigidbody cuerpo = impacto.rigidbody;
                 if (!esCaja && cuerpo != null && !cuerpo.isKinematic &&
                     (capasEmpujables.value & (1 << cuerpo.gameObject.layer)) != 0)

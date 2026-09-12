@@ -5,6 +5,8 @@ using UnityEngine;
 
 public class TriggerActions : MonoBehaviour
 {
+    public event Action UltimoTriggerCompletado;
+
     [Serializable]
     private class AccionTrigger
     {
@@ -68,6 +70,8 @@ public class TriggerActions : MonoBehaviour
                 CambiarVisibilidad(accion, false);
                 if (i + 1 < acciones.Length)
                     CambiarVisibilidad(acciones[i + 1], true);
+                else
+                    UltimoTriggerCompletado?.Invoke();
             }
             break;
         }

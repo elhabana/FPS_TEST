@@ -7,6 +7,9 @@ public class CajasSystem : MonoBehaviour
 {
     [SerializeField] private TMP_Text contador;
     [SerializeField] private Shader shaderDesintegracion;
+    [SerializeField] private Shader shaderAparicion;
+    [SerializeField, Min(0.01f)] private float duracionAparicion = 0.6f;
+    private bool apareciendo;
     [SerializeField, Min(0.05f)] private float duracionDesintegracion = 0.7f;
     [SerializeField, Min(0f)] private float pausaEntreRondas = 1.5f;
     [SerializeField, ColorUsage(false, true)] private Color colorBorde = new Color(0f, 3f, 4f, 1f);
@@ -17,6 +20,9 @@ public class CajasSystem : MonoBehaviour
     [SerializeField, Min(0f)] private float alturaPuerta = 2.5f;
     [SerializeField, Min(0f)] private float velocidadPuerta = 1.5f;
     private Vector3 posicionPuertaInicial;
+    private bool puertaBloqueada;
+
+    public void CerrarPuerta() => puertaBloqueada = true;
 
     private class Caja
     {
@@ -40,7 +46,11 @@ public class CajasSystem : MonoBehaviour
     private void Start()
     {
         if (puertaObjetivo != null)
+        {
             posicionPuertaInicial = puertaObjetivo.position;
+            if (puertaObjetivo.GetComponent<Collider>() == null)
+                puertaObjetivo.gameObject.AddComponent<BoxCollider>();
+        }
 
         foreach (GameObject objeto in GameObject.FindGameObjectsWithTag("Cajas"))
         {
@@ -63,14 +73,15 @@ public class CajasSystem : MonoBehaviour
             cajas.Add(objeto.transform, caja);
         }
         ActualizarContador();
+        StartCoroutine(AparecerTodas());
     }
 
     private void Update()
     {
-        if (puertaObjetivo == null || totalDestruidas < cajasParaAbrir)
+        if (puertaObjetivo == null || (!puertaBloqueada && totalDestruidas < cajasParaAbrir))
             return;
 
-        Vector3 destino = posicionPuertaInicial + Vector3.up * alturaPuerta;
+        Vector3 destino = posicionPuertaInicial + (puertaBloqueada ? Vector3.zero : Vector3.up * alturaPuerta);
         puertaObjetivo.position = Vector3.MoveTowards(
             puertaObjetivo.position, destino, velocidadPuerta * Time.deltaTime);
     }
@@ -84,6 +95,7 @@ public class CajasSystem : MonoBehaviour
         {
             if (!cajas.TryGetValue(actual, out Caja caja))
                 continue;
+            if (apareciendo) return true;
             if (!caja.destruida)
             {
                 caja.destruida = true;
@@ -113,32 +125,7 @@ public class CajasSystem : MonoBehaviour
 
         if (shaderDesintegracion != null)
         {
-            for (int i = 0; i < caja.renderers.Length; i++)
-            {
-                Material[] materiales = new Material[caja.originales[i].Length];
-                for (int j = 0; j < materiales.Length; j++)
-                {
-                    Material original = caja.originales[i][j];
-                    Material efecto = new Material(shaderDesintegracion);
-                    if (original != null)
-                    {
-                        string mapa = original.HasProperty("_BaseMap") ? "_BaseMap" : "_MainTex";
-                        if (original.HasProperty(mapa))
-                        {
-                            efecto.SetTexture("_BaseMap", original.GetTexture(mapa));
-                            efecto.SetTextureScale("_BaseMap", original.GetTextureScale(mapa));
-                            efecto.SetTextureOffset("_BaseMap", original.GetTextureOffset(mapa));
-                        }
-                        if (original.HasProperty("_BaseColor"))
-                            efecto.SetColor("_BaseColor", original.GetColor("_BaseColor"));
-                    }
-                    efecto.SetColor("_EdgeColor", colorBorde);
-                    efecto.SetFloat("_Progress", 0f);
-                    materiales[j] = efecto;
-                    caja.efectos.Add(efecto);
-                }
-                caja.renderers[i].sharedMaterials = materiales;
-            }
+            PrepararMateriales(caja, shaderDesintegracion, colorBorde, 0f);
             float tiempo = 0f;
             while (tiempo < duracionDesintegracion)
             {
@@ -191,6 +178,40 @@ public class CajasSystem : MonoBehaviour
             caja.objeto.SetActive(true);
         }
         desaparecidas = 0;
+        yield return AparecerTodas();
+    }
+
+    private IEnumerator AparecerTodas()
+    {
+        apareciendo = true;
+        foreach (Caja caja in cajas.Values)
+        {
+            foreach (Collider c in caja.colliders) c.enabled = false;
+            if (caja.cuerpo != null) caja.cuerpo.isKinematic = true;
+            if (shaderAparicion != null)
+                PrepararMateriales(caja, shaderAparicion, new Color(2f, 0.4f, 4f, 1f), 1f);
+        }
+        if (shaderAparicion != null)
+        {
+            float tiempo = 0f;
+            while (tiempo < duracionAparicion)
+            {
+                tiempo += Time.deltaTime;
+                float progreso = 1f - Mathf.Clamp01(tiempo / duracionAparicion);
+                foreach (Caja caja in cajas.Values)
+                    foreach (Material efecto in caja.efectos)
+                        efecto.SetFloat("_Progress", progreso);
+                yield return null;
+            }
+        }
+        foreach (Caja caja in cajas.Values)
+        {
+            RestaurarMateriales(caja);
+            for (int i = 0; i < caja.colliders.Length; i++)
+                caja.colliders[i].enabled = caja.collidersActivos[i];
+            if (caja.cuerpo != null) caja.cuerpo.isKinematic = caja.cinematica;
+        }
+        apareciendo = false;
         DespertarCajasRestantes();
     }
 
@@ -198,6 +219,36 @@ public class CajasSystem : MonoBehaviour
     {
         if (contador != null)
             contador.text = totalDestruidas.ToString("00");
+    }
+
+    private void PrepararMateriales(Caja caja, Shader shader, Color color, float progreso)
+    {
+            for (int i = 0; i < caja.renderers.Length; i++)
+            {
+                Material[] materiales = new Material[caja.originales[i].Length];
+                for (int j = 0; j < materiales.Length; j++)
+                {
+                    Material original = caja.originales[i][j];
+                    Material efecto = new Material(shader);
+                    if (original != null)
+                    {
+                        string mapa = original.HasProperty("_BaseMap") ? "_BaseMap" : "_MainTex";
+                        if (original.HasProperty(mapa))
+                        {
+                            efecto.SetTexture("_BaseMap", original.GetTexture(mapa));
+                            efecto.SetTextureScale("_BaseMap", original.GetTextureScale(mapa));
+                            efecto.SetTextureOffset("_BaseMap", original.GetTextureOffset(mapa));
+                        }
+                        if (original.HasProperty("_BaseColor"))
+                            efecto.SetColor("_BaseColor", original.GetColor("_BaseColor"));
+                    }
+                    efecto.SetColor("_EdgeColor", color);
+                    efecto.SetFloat("_Progress", progreso);
+                    materiales[j] = efecto;
+                    caja.efectos.Add(efecto);
+                }
+                caja.renderers[i].sharedMaterials = materiales;
+            }
     }
 
     private void RestaurarMateriales(Caja caja)
@@ -216,3 +267,4 @@ public class CajasSystem : MonoBehaviour
             RestaurarMateriales(caja);
     }
 }
+
