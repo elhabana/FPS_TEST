@@ -1,11 +1,11 @@
 using UnityEngine;
 
-public class FinalPartida : MonoBehaviour
+public class GameEnding : MonoBehaviour
 {
     [SerializeField] private GameObject triggerFinal;
     [SerializeField] private GameObject panelGameOver;
     [SerializeField] private AudioSource sonido;
-    [SerializeField] private PruebaCajas prueba;
+    [SerializeField] private TimedCrateChallenge prueba;
     private TriggerDetector detector;
     private bool mostrado;
 

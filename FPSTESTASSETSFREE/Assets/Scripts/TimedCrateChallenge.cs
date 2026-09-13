@@ -2,10 +2,10 @@ using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 
-public class PruebaCajas : MonoBehaviour
+public class TimedCrateChallenge : MonoBehaviour
 {
     [SerializeField] private TriggerActions triggers;
-    [SerializeField] private CajasSystem primeraPrueba;
+    [SerializeField] private CrateChallenge primeraPrueba;
     [SerializeField] private TMP_Text contador;
     [SerializeField] private Transform puerta;
     [SerializeField] private Transform spawnpoint;
@@ -24,7 +24,7 @@ public class PruebaCajas : MonoBehaviour
     [SerializeField, Min(0.1f)] private float distanciaSuelo = 0.8f;
     [SerializeField] private LayerMask capasSuelo = (1 << 0) | (1 << 6) | (1 << 8) | (1 << 9);
 
-    private readonly List<CajaRapida> cajas = new List<CajaRapida>();
+    private readonly List<FallingCrate> cajas = new List<FallingCrate>();
     private Vector3 origenSpawn;
     private Vector3 rotacionPuertaInicial;
     private float tiempoApertura;
@@ -59,7 +59,7 @@ public class PruebaCajas : MonoBehaviour
     private void OnDisable()
     {
         if (triggers != null) triggers.UltimoTriggerCompletado -= Activar;
-        foreach (CajaRapida caja in cajas)
+        foreach (FallingCrate caja in cajas)
             if (caja != null) Destroy(caja.gameObject);
         cajas.Clear();
     }
@@ -103,7 +103,7 @@ public class PruebaCajas : MonoBehaviour
             hijo.gameObject.layer = 7;
             hijo.gameObject.isStatic = false;
         }
-        CajaRapida caja = objeto.AddComponent<CajaRapida>();
+        FallingCrate caja = objeto.AddComponent<FallingCrate>();
         cajas.Add(caja);
         caja.Inicializar(this, shaderAparicion, shaderAcierto, shaderFallo,
             tiempoParaDisparar, duracionEfecto, distanciaSuelo, capasSuelo);
@@ -116,7 +116,7 @@ public class PruebaCajas : MonoBehaviour
         if (contador != null) contador.text = puntos.ToString("00");
         if (puntos < puntosObjetivo) return;
         completada = true;
-        foreach (CajaRapida caja in cajas)
+        foreach (FallingCrate caja in cajas)
             if (caja != null) caja.Terminar(false);
     }
 }
