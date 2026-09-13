@@ -16,6 +16,7 @@ public class BulletShoot : MonoBehaviour
     [SerializeField] private LayerMask capasEmpujables = 1 << 7;
     [SerializeField, Min(0.001f)] private float grosorLaser = 0.02f;
     [SerializeField] private Color colorLaser = Color.red;
+    [SerializeField] private Shader laserShader;
     [SerializeField] private LayerMask capasImpacto = Physics.DefaultRaycastLayers;
 
     [SerializeField] private WeaponEffects efectos = new WeaponEffects();
@@ -45,7 +46,14 @@ public class BulletShoot : MonoBehaviour
         fuenteAudio = GetComponent<AudioSource>();
         fuenteAudio.playOnAwake = false;
 
-        materialLaser = new Material(Shader.Find("Universal Render Pipeline/Unlit"));
+        // La referencia de la escena permite incluir el shader en la build.
+        if (laserShader == null)
+        {
+            Debug.LogError("BulletShoot: falta asignar Laser Shader.", this);
+            enabled = false;
+            return;
+        }
+        materialLaser = new Material(laserShader);
         materialLaser.SetColor("_BaseColor", colorLaser);
 
     }
